@@ -66,6 +66,7 @@ function evaluate({ managementRecords, schemaRecords }) {
   const schema = schemaRecords.find((r) => r && r.type === 'SCHEMA');
   if (!schema) {
     return {
+      schema_applied: null,
       omissionDetected: true,
       auditDecision: 'NON_COMPLIANT',
       evidencePositive,
@@ -107,6 +108,7 @@ function evaluate({ managementRecords, schemaRecords }) {
           evidence_id: matchingEvidence.evidence_id || `e+.${ruleId}.${String(matchValue)}`,
           kind: 'E+',
           rule_id: ruleId,
+          required_evidence_type: requiresEvidenceType,
           for_event: {
             event_type: evt.event_type,
             match_on: matchOn,
@@ -122,6 +124,7 @@ function evaluate({ managementRecords, schemaRecords }) {
           evidence_id: `e-.${ruleId}.${String(matchValue)}`,
           kind: 'E-',
           rule_id: ruleId,
+          required_evidence_type: requiresEvidenceType,
           reason: `Missing required evidence: ${requiresEvidenceType}`,
           for_event: {
             event_type: evt.event_type,
@@ -139,7 +142,36 @@ function evaluate({ managementRecords, schemaRecords }) {
   const omissionDetected = evidenceNegative.length > 0;
   const auditDecision = omissionDetected ? 'NON_COMPLIANT' : 'COMPLIANT';
 
-  return { omissionDetected, auditDecision, evidencePositive, evidenceNegative, notes };
+  const schemaApplied = {
+    schema_id: schema.schema_id,
+    schema_version: schema.schema_version
+  };
+
+  if (omissionDetected && evidencePositive.length > 0) {
+    const missingTypes = Array.from(
+      new Set(
+        evidenceNegative
+          .map((e) => e && e.required_evidence_type)
+          .filter((t) => typeof t === 'string')
+      )
+    ).sort();
+    if (missingTypes.length > 0 && typeof schemaApplied.schema_version !== 'undefined') {
+      notes.push(
+        `Schema drift: event history is unchanged, but schema v${schemaApplied.schema_version} requires additional evidence (${missingTypes.join(
+          ', '
+        )}).`
+      );
+    }
+  }
+
+  return {
+    schema_applied: schemaApplied,
+    omissionDetected,
+    auditDecision,
+    evidencePositive,
+    evidenceNegative,
+    notes
+  };
 }
 
 function findHumanDecision({ managementRecords, missingMatchValues }) {
@@ -261,6 +293,7 @@ function main() {
     demo: 'node',
     status: auditStatus,
     evaluated_at: FIXED_EVALUATED_AT,
+    schema_applied: evaluation.schema_applied,
     invariants_checked: invariantsChecked,
     evidence_positive: evaluation.evidencePositive,
     evidence_negative: evaluation.evidenceNegative,
@@ -297,6 +330,10 @@ function main() {
     deterministic_outcome: true,
     consistency_check: true,
     human_decision_linked: human.present,
+    schema_version_applied:
+      evaluation.schema_applied && typeof evaluation.schema_applied.schema_version !== 'undefined'
+        ? evaluation.schema_applied.schema_version
+        : null,
     input_digest_sha256: inputDigestSha256
   };
 
@@ -332,6 +369,10 @@ function main() {
       audit_decision: auditDecision,
       omission_detected: evaluation.omissionDetected,
       human_decision_present: human.present,
+      schema_version_applied:
+        evaluation.schema_applied && typeof evaluation.schema_applied.schema_version !== 'undefined'
+          ? evaluation.schema_applied.schema_version
+          : null,
       outputs: {
         audit_result: toPosixPath(path.relative(repoRoot, auditOutPath)),
         rebuild_summary: toPosixPath(path.relative(repoRoot, rebuildOutPath))

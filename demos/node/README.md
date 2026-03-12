@@ -2,7 +2,7 @@
 
 This demo provides a small, fully-local Node.js runner for Janus demo cases.
 
-It intentionally implements only one canonical case (`case-01-happy-path`) to keep the public demo portable and easy to audit.
+It intentionally stays small and dependency-light to keep the public demo portable and easy to audit.
 
 ## What `case-01-happy-path` demonstrates
 
@@ -32,12 +32,24 @@ Important: Janus preserves omission truth — the negative evidence (`E-`) remai
 - Detects a linked human decision event for the same deployment
 - Records a human-approved exception in the final audit decision
 
+## What `case-04-schema-drift` demonstrates
+
+This case demonstrates schema drift: the event history contains some evidence that used to be sufficient, but a newer schema version requires additional evidence.
+
+Important: Janus treats the inputs as append-only; interpretation changes because the schema changes, not because the history changes.
+
+- Finds explicit positive evidence (`E+`) for requirements that are met
+- Emits explicit negative evidence (`E-`) for the new, unmet requirement
+- Marks omission detected and produces a non-compliant audit decision
+- Records the applied schema version in the audit artifacts and adds a schema-drift note
+
 ## Invariants referenced
 
 - Append-only input artifacts
 - Schema-governed interpretation
 - Explicit positive evidence (`E+`)
-- No omission detected (happy path)
+- Explicit negative evidence (`E-`)
+- Omission detection
 - Deterministic rebuildability
 - Separation between input evidence and audit output
 
@@ -45,12 +57,7 @@ Important: Janus preserves omission truth — the negative evidence (`E-`) remai
 
 - Case directory under `../shared/datasets/`
 
-For `case-01-happy-path` the runner reads:
-
-- `MANAGEMENT_LOG.ndjson`
-- `SCHEMA_LOG.ndjson`
-
-For `case-02-omission` the runner reads the same filenames:
+For each case, the runner reads the same filenames:
 
 - `MANAGEMENT_LOG.ndjson`
 - `SCHEMA_LOG.ndjson`
@@ -65,6 +72,8 @@ For `case-02-omission` the runner reads the same filenames:
 	- `rebuild-summary.case-02-omission.json`
 	- `audit-result.case-03-human-decision.json`
 	- `rebuild-summary.case-03-human-decision.json`
+	- `audit-result.case-04-schema-drift.json`
+	- `rebuild-summary.case-04-schema-drift.json`
 
 ## Run
 
