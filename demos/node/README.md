@@ -43,6 +43,15 @@ Important: Janus treats the inputs as append-only; interpretation changes becaus
 - Marks omission detected and produces a non-compliant audit decision
 - Records the applied schema version in the audit artifacts and adds a schema-drift note
 
+## What `case-05-stress` demonstrates
+
+This case demonstrates deterministic governance evaluation under higher event volume.
+
+- Processes ~1950 NDJSON records (1000 deployments)
+- Introduces omissions deterministically (~5% missing confirmations)
+- Produces a non-compliant audit decision with deterministic evidence ordering
+- Outputs include a stress summary (deployments checked/compliant/missing) to show stable counting
+
 ## Invariants referenced
 
 - Append-only input artifacts
@@ -74,6 +83,8 @@ For each case, the runner reads the same filenames:
 	- `rebuild-summary.case-03-human-decision.json`
 	- `audit-result.case-04-schema-drift.json`
 	- `rebuild-summary.case-04-schema-drift.json`
+	- `audit-result.case-05-stress.json`
+	- `rebuild-summary.case-05-stress.json`
 
 ## Run
 

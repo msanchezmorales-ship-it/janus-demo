@@ -1,0 +1,1 @@
+{"type":"SCHEMA","schema_id":"schema-001","schema_version":1,"expects":[{"rule_id":"rule.deployment.confirmation","when_event_type":"DEPLOYMENT_COMPLETED","requires_evidence_type":"DEPLOYMENT_CONFIRMED","match_on":"deployment_id"}]}

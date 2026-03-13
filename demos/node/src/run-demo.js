@@ -86,6 +86,18 @@ function evaluate({ managementRecords, schemaRecords }) {
     notes.push('Schema contains no expectations; nothing to validate.');
   }
 
+  const matchOns = new Set(expects.map((e) => e && e.match_on).filter((v) => typeof v === 'string'));
+  const evidenceIndex = new Map();
+  for (const e of evidenceEvents) {
+    if (!e || typeof e.evidence_type !== 'string') continue;
+    for (const matchOn of matchOns) {
+      const matchValue = e[matchOn];
+      if (typeof matchValue !== 'string') continue;
+      const key = `${e.evidence_type}|${matchOn}|${matchValue}`;
+      if (!evidenceIndex.has(key)) evidenceIndex.set(key, e);
+    }
+  }
+
   for (const expectation of expects) {
     const ruleId = expectation.rule_id;
     const whenEventType = expectation.when_event_type;
@@ -96,12 +108,7 @@ function evaluate({ managementRecords, schemaRecords }) {
       if (!evt || evt.event_type !== whenEventType) continue;
 
       const matchValue = evt[matchOn];
-      const matchingEvidence = evidenceEvents.find(
-        (e) =>
-          e &&
-          e.evidence_type === requiresEvidenceType &&
-          e[matchOn] === matchValue
-      );
+      const matchingEvidence = evidenceIndex.get(`${requiresEvidenceType}|${matchOn}|${String(matchValue)}`);
 
       if (matchingEvidence) {
         evidencePositive.push({
@@ -288,11 +295,31 @@ function main() {
   const auditOutPath = path.join(outputDir, `audit-result.${caseId}.json`);
   const rebuildOutPath = path.join(outputDir, `rebuild-summary.${caseId}.json`);
 
+  const stressSummary = (() => {
+    if (caseId !== 'case-05-stress') return null;
+
+    const deploymentsChecked = mgmt.records.filter(
+      (r) => r && r.type === 'GOVERNANCE_EVENT' && r.event_type === 'DEPLOYMENT_COMPLETED'
+    ).length;
+    const deploymentsMissingEvidence = evaluation.evidenceNegative.length;
+    const deploymentsCompliant = Math.max(0, deploymentsChecked - deploymentsMissingEvidence);
+
+    return {
+      total_events_processed: mgmt.records.length,
+      deployments_checked: deploymentsChecked,
+      deployments_compliant: deploymentsCompliant,
+      deployments_missing_evidence: deploymentsMissingEvidence,
+      omission_detected_count: deploymentsMissingEvidence,
+      input_digest_sha256: inputDigestSha256
+    };
+  })();
+
   const auditResult = {
     case_id: caseId,
     demo: 'node',
     status: auditStatus,
     evaluated_at: FIXED_EVALUATED_AT,
+    ...(stressSummary ? stressSummary : {}),
     schema_applied: evaluation.schema_applied,
     invariants_checked: invariantsChecked,
     evidence_positive: evaluation.evidencePositive,
